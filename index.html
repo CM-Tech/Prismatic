@@ -1,0 +1,245 @@
+<html>
+    <head>
+        <title>Prismatic</title>
+        <style>
+            * {
+                margin:0;
+                padding:0;
+                width:100%;
+                height:100%;
+                background: black;
+            }
+        </style>
+    </head>
+    <body onload="render();">
+        <canvas id="shader"></canvas>
+        <script id="fragment" type="x-shader/x-fragment">
+        #ifdef GL_ES
+        precision highp float;
+        #endif
+
+        uniform float down;
+        uniform float time;
+        uniform vec2 mouse;
+        uniform vec2 resolution;
+        uniform sampler2D backbuffer;
+
+        vec4 white =  vec4(1.,1.,1.,1.);
+        vec4 blue =   vec4(0.,0.,1.,1.);
+        vec4 green =  vec4(0.,1.,0.,1.);
+        vec4 cyan =   vec4(0.,1.,1.,1.);
+        vec4 red =    vec4(1.,0.,0.,1.);
+        vec4 purple = vec4(1.,0.,1.,1.);
+        vec4 yellow = vec4(1.,1.,0.,1.);
+
+        void main( void ) {
+
+
+        	vec2 position = ( gl_FragCoord.xy / resolution.xy );
+        	vec2 pixel = 1./resolution;
+
+        	if (length(position-mouse) < 0.05) {
+        		float rnd1 = mod(fract(sin(dot(position + time * 0.001, vec2(14.9898,78.233))) * 43758.5453), 1.0);
+            if(down==1.0){
+              if (rnd1 < 0.1666) {
+        		  	gl_FragColor = red;
+        		  } else if (rnd1 < 0.3333) {
+        		  	gl_FragColor = yellow;
+        		  } else if (rnd1 < 0.5) {
+        		  	gl_FragColor = green;
+        		  } else if (rnd1 < 0.6666) {
+        		  	gl_FragColor = cyan;
+        		  } else if (rnd1 < 0.8333) {
+        		  	gl_FragColor = blue;
+        		  } else if (rnd1 < 0.999) {
+        		  	gl_FragColor = purple;
+        		  } else {
+        		  	gl_FragColor = vec4(0.,0.,0.,1.);
+        		  }
+            } else {
+              gl_FragColor = white;
+            }
+        	} else {
+        		vec4 me = texture2D(backbuffer, position);
+        		bool work = false;
+        		for(float i = -1.0; i <= 1.0; i += 1.0){
+        			for(float j = -1.0; j <= 1.0; j +=1.0){
+
+                if( me==white && texture2D(backbuffer, position + pixel * vec2(i, j))==red){
+        					gl_FragColor=red;
+        					work = true;
+        				} else if( me==red && texture2D(backbuffer, position + pixel * vec2(i, j))==yellow){
+        					gl_FragColor=yellow;
+        					work = true;
+        				} else if( me==yellow && texture2D(backbuffer, position + pixel * vec2(i, j))==green ){
+        					gl_FragColor=green;
+        					work = true;
+        				} else if( me==green && texture2D(backbuffer, position + pixel * vec2(i, j))==cyan ){
+        					gl_FragColor=cyan;
+        					work = true;
+        				} else if( me==cyan && texture2D(backbuffer, position + pixel * vec2(i, j))==blue ){
+        					gl_FragColor=blue;
+        					work = true;
+        				} else if( me==blue && texture2D(backbuffer, position + pixel * vec2(i, j))==purple ){
+        					gl_FragColor=purple;
+        					work = true;
+        				} else if( me==purple && texture2D(backbuffer, position + pixel * vec2(i, j))==red ){
+        					gl_FragColor=red;
+        					work = true;
+        				}
+        			}
+        		}
+        		if(work==false){
+        			gl_FragColor=me;
+        		}
+        	}
+        }
+        </script>
+        <script id="vertex" type="x-shader/x-vertex">
+            precision mediump float;
+            attribute vec2 vertPosition;
+            void main() {
+                gl_Position = vec4(vertPosition, 0.0, 1.0);
+            }
+        </script>
+        <script>
+            var mouse = {
+                x: 0.5,
+                y: 0.5
+            };
+            var down = 0.0;
+            var canvas = document.getElementById("shader");
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            var gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+
+            var vertexShader = gl.createShader(gl.VERTEX_SHADER);
+            var fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+
+            gl.shaderSource(vertexShader, document.getElementById("vertex").innerHTML);
+            gl.shaderSource(fragmentShader, document.getElementById("fragment").innerHTML);
+
+            gl.compileShader(vertexShader);
+            gl.compileShader(fragmentShader);
+
+            var program = gl.createProgram();
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+
+            var triangleVertices = new Float32Array([
+                -1.0, -1.0,
+                 1.0, -1.0,
+                -1.0,  1.0,
+
+                 1.0, -1.0,
+                 1.0,  1.0,
+                -1.0,  1.0
+            ]);
+
+            var t1 = createTarget(window.innerWidth,window.innerHeight);
+            var t2 = createTarget(window.innerWidth,window.innerHeight);
+
+
+			      program.time = gl.getUniformLocation(program, "time");
+            program.resolution = gl.getUniformLocation(program, "resolution");
+            program.mouse = gl.getUniformLocation(program, "mouse");
+            program.backbuffer = gl.getUniformLocation(program, "backbuffer");
+            program.down = gl.getUniformLocation(program, "down");
+            program.position = gl.getAttribLocation(program, "vertPosition");
+
+            function render(time) {
+                gl.useProgram(program);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+                gl.bufferData(gl.ARRAY_BUFFER, triangleVertices, gl.STATIC_DRAW);
+
+                gl.activeTexture( gl.TEXTURE0 );
+				        gl.bindTexture( gl.TEXTURE_2D, time&0x1==1?t1.texture:t2.texture );
+
+			          gl.bindFramebuffer( gl.FRAMEBUFFER, time&0x1==1?t2.framebuffer:t1.framebuffer );
+
+                gl.uniform1f(program.down, down);
+                gl.uniform1f(program.time, time / 1000);
+                gl.uniform2f(program.resolution, window.innerWidth, window.innerHeight);
+                gl.uniform2f(program.mouse, mouse.x, 1 - mouse.y);
+                gl.uniform1i(program.backbuffer, 0);
+
+                gl.enableVertexAttribArray(program.position);
+                gl.vertexAttribPointer(program.position, 2, gl.FLOAT, gl.FALSE, 0, 0);
+
+				        gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+				        gl.useProgram(program);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+                gl.bufferData(gl.ARRAY_BUFFER, triangleVertices, gl.STATIC_DRAW);
+
+                gl.activeTexture( gl.TEXTURE1 );
+				        gl.bindTexture( gl.TEXTURE_2D, time&0x1==1?t2.texture:t1.texture );
+
+				        gl.bindFramebuffer( gl.FRAMEBUFFER, null );
+                gl.uniform1i(program.backbuffer, 0);
+
+				        gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+				        var tmp = t1;
+				        t1=t2;
+				        t2=tmp;
+
+				        window.requestAnimationFrame(render);
+            }
+            window.requestAnimationFrame(render);
+            window.onmousemove = function(e) {
+                mouse.x = e.clientX / window.innerWidth;
+                mouse.y = e.clientY / window.innerHeight;
+            };
+            window.onresize = function() {
+                gl.viewport(0, 0, window.innerWidth, window.innerHeight);
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                t1 = createTarget(window.innerWidth,window.innerHeight);
+                t2 = createTarget(window.innerWidth,window.innerHeight);
+            };
+            window.onmousedown = function(){
+              down=1.0;
+            }
+            window.onmouseup = function(){
+              down=0.0;
+            }
+            function createTarget( width, height ) {
+
+				      var target = {};
+
+				      target.framebuffer = gl.createFramebuffer();
+				      target.renderbuffer = gl.createRenderbuffer();
+				      target.texture = gl.createTexture();
+
+				      gl.bindTexture( gl.TEXTURE_2D, target.texture );
+				      gl.texImage2D( gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null );
+
+				      gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE );
+				      gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE );
+
+				      gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST );
+				      gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST );
+
+				      gl.bindFramebuffer( gl.FRAMEBUFFER, target.framebuffer );
+				      gl.framebufferTexture2D( gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, target.texture, 0 );
+
+				      gl.bindRenderbuffer( gl.RENDERBUFFER, target.renderbuffer );
+
+				      gl.renderbufferStorage( gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height );
+				      gl.framebufferRenderbuffer( gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, target.renderbuffer );
+
+
+				      gl.bindTexture( gl.TEXTURE_2D, null );
+				      gl.bindRenderbuffer( gl.RENDERBUFFER, null );
+				      gl.bindFramebuffer( gl.FRAMEBUFFER, null);
+
+				      return target;
+
+			      }
+        </script>
+    </body>
+</html>
